@@ -17,7 +17,7 @@
   "author": "TuNombre",
   "license": "ISC",
   "dependencies": {
-    "playwright": "^1.53.2",
+    "node-static": "^0.7.11",
     "protobufjs": "^7.2.5",
     "puppeteer": "^22.6.5",
     "puppeteer-extra": "^3.3.6",

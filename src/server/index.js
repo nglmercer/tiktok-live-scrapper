@@ -1,11 +1,19 @@
+const http = require('http');
 const WebSocket = require('ws');
+const nodeStatic = require('node-static');
+const path = require('path');
 const { RoomManager } = require('./RoomManager');
 const tikTokConnector = require('../services/TikTokConnector'); // Importamos el conector
 const emitter = require('../services/eventEmitter'); // Importamos el emisor/escuchador
+const fileServer = new nodeStatic.Server(path.join(process.cwd(), './public'));
 
+const server = http.createServer((req, res) => {
+  fileServer.serve(req, res);
+});
+
+const wss = new WebSocket.Server({ server });
 const PORT = process.env.PORT || 8080;
 
-const wss = new WebSocket.Server({ port: PORT });
 const roomManager = new RoomManager();
 
 console.log(`🚀 TikTok LIVE WebSocket API Server is running on ws://localhost:${PORT}`);
@@ -87,3 +95,4 @@ wss.on('connection', (ws) => {
         }
     });
 });
+server.listen(PORT);

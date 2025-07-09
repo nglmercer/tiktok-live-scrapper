@@ -27,7 +27,6 @@ async function interceptWithPuppeteerCDP(username) {
             const decodedContainer = await deserializeWebsocketMessage(messageBuffer);
             console.log('Payload decodificado:',getMessage(decodedContainer));
         }
-        // Aquí, igual que con Playwright, necesitarás decodificar el Protobuf.
     });
     
     // Opcional: escuchar tramas enviadas

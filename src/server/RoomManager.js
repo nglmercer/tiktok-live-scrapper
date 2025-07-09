@@ -1,91 +1,81 @@
-// src/server/RoomManager.js
-const { TikTokConnector } = require('../core/TikTokConnector');
-
 class RoomManager {
     constructor() {
-        // Almacena las instancias de TikTokConnector por nombre de usuario
-        this.connectors = new Map();
-        // Almacena los clientes (WebSockets) suscritos a cada sala/usuario
-        this.subscriptions = new Map();
+        // Almacena las salas: Map<username, Set<WebSocket>>
+        this.rooms = new Map();
+        // Almacenamiento inverso para encontrar la sala de un cliente: Map<WebSocket, username>
+        this.clientRooms = new Map();
     }
 
     /**
-     * Suscribe un cliente a una sala de TikTok.
-     * @param {WebSocket} clientWs - El socket del cliente que se suscribe.
-     * @param {string} username - El nombre de usuario de TikTok al que suscribirse.
+     * Suscribe un cliente a una sala (username).
+     * @param {WebSocket} ws El cliente WebSocket.
+     * @param {string} username El nombre de la sala (usuario de TikTok).
+     * @returns {boolean} Devuelve `true` si era el primer cliente en la sala, `false` si no.
      */
-    subscribe(clientWs, username) {
-        username = username.toLowerCase();
-        
-        // Añadir cliente a la lista de suscripciones de la sala
-        if (!this.subscriptions.has(username)) {
-            this.subscriptions.set(username, new Set());
+    subscribe(ws, username) {
+        // Si el cliente ya está en otra sala, lo quitamos primero
+        this.unsubscribe(ws);
+
+        if (!this.rooms.has(username)) {
+            this.rooms.set(username, new Set());
         }
-        this.subscriptions.get(username).add(clientWs);
 
-        // Si no hay un conector para este usuario, crear uno
-        if (!this.connectors.has(username)) {
-            console.log(`[Server] No active connector for '${username}'. Creating a new one.`);
-            const connector = new TikTokConnector();
-            this.connectors.set(username, connector);
+        const room = this.rooms.get(username);
+        room.add(ws);
+        this.clientRooms.set(ws, username);
 
-            // Escuchar todos los eventos del conector y retransmitirlos
-            const eventsToBroadcast = ['chat', 'gift', 'like', 'member', 'social', 'roomUser', 'subscribe', 'emote', 'streamEnd'];
-            
-            // Eventos de estado para informar a los clientes
-            connector.on('connected', (data) => this.broadcast(username, 'status:connected', data));
-            connector.on('disconnected', (data) => this.broadcast(username, 'status:disconnected', data));
-            connector.on('error', (data) => this.broadcast(username, 'status:error', data));
-
-            // Eventos de datos
-            eventsToBroadcast.forEach(eventName => {
-                connector.on(eventName, (data) => {
-                    this.broadcast(username, eventName, data);
-                });
-            });
-            
-            connector.connect(username);
-        }
+        console.log(`[RoomManager] Cliente suscrito a la sala '${username}'. Clientes totales en la sala: ${room.size}`);
+        return room.size === 1; // Devuelve true si es el primer suscriptor
     }
 
     /**
-     * Desuscribe un cliente de todas las salas a las que estaba suscrito.
-     * @param {WebSocket} clientWs - El socket del cliente que se desconecta.
+     * Desuscribe a un cliente de su sala actual.
+     * @param {WebSocket} ws El cliente WebSocket.
+     * @returns {string|null} Devuelve el nombre de la sala si esta quedó vacía, si no null.
      */
-    unsubscribe(clientWs) {
-        this.subscriptions.forEach((subscribers, username) => {
-            if (subscribers.has(clientWs)) {
-                subscribers.delete(clientWs);
-                console.log(`[Server] Client unsubscribed from '${username}'.`);
+    unsubscribe(ws) {
+        const username = this.clientRooms.get(ws);
+        if (!username) {
+            return null;
+        }
 
-                // Si la sala se queda vacía, desconectar y limpiar el conector
-                if (subscribers.size === 0) {
-                    console.log(`[Server] Room '${username}' is now empty. Disconnecting...`);
-                    const connector = this.connectors.get(username);
-                    if (connector) {
-                        connector.disconnect();
-                        this.connectors.delete(username);
-                    }
-                    this.subscriptions.delete(username);
-                }
+        const room = this.rooms.get(username);
+        if (room) {
+            room.delete(ws);
+            console.log(`[RoomManager] Cliente desuscrito de la sala '${username}'. Clientes restantes: ${room.size}`);
+            
+            // Si la sala queda vacía, la eliminamos
+            if (room.size === 0) {
+                this.rooms.delete(username);
+                console.log(`[RoomManager] La sala '${username}' está vacía y ha sido eliminada.`);
+                this.clientRooms.delete(ws);
+                return username; // Informamos que la sala quedó vacía
             }
-        });
+        }
+
+        this.clientRooms.delete(ws);
+        return null;
     }
 
     /**
-     * Envía un mensaje a todos los clientes suscritos a una sala.
-     * @param {string} username - La sala a la que se enviará el mensaje.
-     * @param {string} event - El nombre del evento.
-     * @param {object} data - Los datos del evento.
+     * Envía un mensaje a todos los clientes de una sala.
+     * @param {string} username El nombre de la sala.
+     * @param {object} payload El objeto a enviar (con formato { eventName, data }).
      */
-    broadcast(username, event, data) {
-        const subscribers = this.subscriptions.get(username);
-        if (!subscribers) return;
+    broadcast(username, payload) {
+        const room = this.rooms.get(username);
+        if (!room) {
+            return;
+        }
 
-        const message = JSON.stringify({ event, data });
+        // Formateamos el mensaje final para el cliente
+        const message = JSON.stringify({
+            event: payload.eventName,
+            data: payload.data
+        });
 
-        subscribers.forEach(client => {
-            if (client.readyState === 1) { // WebSocket.OPEN
+        room.forEach(client => {
+            if (client.readyState === client.OPEN) {
                 client.send(message);
             }
         });

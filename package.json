@@ -1,0 +1,27 @@
+{
+  "name": "tiktok-live-api",
+  "version": "1.0.0",
+  "description": "A standalone Node.js WebSocket server to receive real-time TikTok LIVE events.",
+  "main": "src/server/index.js",
+  "scripts": {
+    "start": "node src/server/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "tiktok",
+    "live",
+    "websocket",
+    "api",
+    "real-time"
+  ],
+  "author": "TuNombre",
+  "license": "ISC",
+  "dependencies": {
+    "playwright": "^1.53.2",
+    "protobufjs": "^7.2.5",
+    "puppeteer": "^22.6.5",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "ws": "^8.16.0"
+  }
+}

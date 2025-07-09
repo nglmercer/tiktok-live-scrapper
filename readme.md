@@ -23,7 +23,7 @@ Esta es la parte crucial. Crearemos un nuevo módulo que usa un navegador headle
     *   Añade `puppeteer` a las dependencias de tu proyecto (`npm install puppeteer`). Puppeteer te permite controlar un navegador Chrome/Chromium desde Node.js.
 
 2.  **Crear el "Scraper" de Conexión:**
-    *   Crea un nuevo archivo, por ejemplo, `src/core/URLScraper.js`.
+    *   Crea un nuevo archivo, por ejemplo, `src/core/PuppeteerScraper.js`.
     *   Este módulo tendrá una función asíncrona principal, por ejemplo `fetchConnectionParams(username)`.
     *   **Lógica de `fetchConnectionParams`:**
         a.  Lanza una instancia de Puppeteer en modo *headless*.
@@ -85,7 +85,7 @@ tiktok-live-api/
 │   ├── core/
 │   │   ├── TikTokConnector.js  # Orquestador de alto nivel (refactorizado)
 │   │   ├── TikTokWebsocket.js    # Lógica de bajo nivel con Protobuf (antes webcastWebsocket2.js)
-│   │   └── URLScraper.js         # NUEVO: Obtiene la URL/cookies con Puppeteer
+│   │   └── PuppeteerScraper.js         # NUEVO: Obtiene la URL/cookies con Puppeteer
 │   │
 │   ├── server/
 │   │   ├── index.js              # Lógica principal del servidor WebSocket (server.js)
@@ -104,12 +104,12 @@ tiktok-live-api/
 └── README.md
 ```
 
-### Ejemplo de Código Clave (`URLScraper.js`)
+### Ejemplo de Código Clave (`PuppeteerScraper.js`)
 
 Aquí tienes un esqueleto para la parte más novedosa de tu proyecto:
 
 ```javascript
-// src/core/URLScraper.js
+// src/core/PuppeteerScraper.js
 const puppeteer = require('puppeteer');
 
 class URLScraper {

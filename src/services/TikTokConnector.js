@@ -42,7 +42,22 @@ function processDecodedResponse(response) {
  */
 async function interceptAndEmitEvents(username) {
     const liveUrl = `https://www.tiktok.com/@${username}/live`;
-    const browser = await puppeteer.launch({ headless: 'new' });
+    const browser = await puppeteer.launch({ 
+        headless: 'new',
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process',
+            '--disable-gpu',
+            '--disable-web-security',
+            '--disable-features=VizDisplayCompositor'
+        ],
+        executablePath: process.env.CHROME_BIN || undefined // Por si tienes Chrome en una ruta específica
+    });
     const page = await browser.newPage();
     
     // Guardamos la instancia del browser para poder cerrarla después

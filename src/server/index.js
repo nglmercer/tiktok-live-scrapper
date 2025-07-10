@@ -81,7 +81,7 @@ wss.on('connection', (ws) => {
         
         if (emptiedRoom) {
             console.log(`[Server] La sala para @${emptiedRoom} está vacía. Desconectando el conector de TikTok...`);
-            // Si la sala quedó vacía, cerramos la conexión de Puppeteer para ahorrar recursos.
+            // Si la sala quedó vacía, cerramos la conexión;
             tikTokConnector.disconnect(emptiedRoom);
         }
     });

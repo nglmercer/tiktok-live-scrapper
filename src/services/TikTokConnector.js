@@ -2,7 +2,9 @@ const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const { deserializeWebsocketMessage } = require('../core/messageDecoder'); // Asumiendo que messageDecoder está en la misma carpeta
 const emitter = require('./eventEmitter'); // ¡Importamos nuestro emisor de eventos!
-
+const os = require('os');
+const fs = require('fs');
+const path = require('path');
 puppeteer.use(StealthPlugin());
 
 // Usamos un Map para llevar un registro de las conexiones activas
@@ -35,28 +37,59 @@ function processDecodedResponse(response) {
             data: message.decodedData
         }));
 }
+function getChromeExecutablePath() {
+    const platform = os.platform();
+    let possiblePaths = [];
 
+    if (platform === 'win32') { // Windows
+        const prefixes = [
+            process.env.LOCALAPPDATA,
+            process.env.PROGRAMFILES,
+            process.env['PROGRAMFILES(X86)']
+        ];
+        prefixes.forEach(prefix => {
+            if (prefix) {
+                possiblePaths.push(path.join(prefix, 'Google', 'Chrome', 'Application', 'chrome.exe'));
+            }
+        });
+        // También podemos buscar Edge, ya que es basado en Chromium
+        possiblePaths.push(path.join(process.env['PROGRAMFILES(X86)'] || 'C:/Program Files (x86)', 'Microsoft', 'Edge', 'Application', 'msedge.exe'));
+
+    } else if (platform === 'darwin') { // macOS
+        possiblePaths = [
+            '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+            '/Applications/Chromium.app/Contents/MacOS/Chromium',
+        ];
+    } else { // Linux (y otros)
+        possiblePaths = [
+            '/usr/bin/google-chrome',
+            '/usr/bin/google-chrome-stable',
+            '/usr/bin/chromium-browser',
+            '/usr/bin/chromium',
+            '/snap/bin/chromium',
+        ];
+    }
+
+    for (const p of possiblePaths) {
+        if (fs.existsSync(p)) {
+            console.log(`[TikTokConnector] Navegador encontrado en: ${p}`);
+            return p;
+        }
+    }
+
+    return null;
+}
+const executablePath = getChromeExecutablePath();
 /**
  * Inicia la intercepción de eventos para un usuario específico y emite los eventos.
  * @param {string} username El nombre de usuario de TikTok.
  */
 async function interceptAndEmitEvents(username) {
     const liveUrl = `https://www.tiktok.com/@${username}/live`;
+    // DESPUÉS
     const browser = await puppeteer.launch({ 
         headless: 'new',
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--single-process',
-            '--disable-gpu',
-            '--disable-web-security',
-            '--disable-features=VizDisplayCompositor'
-        ],
-        executablePath: process.env.CHROME_BIN || undefined // Por si tienes Chrome en una ruta específica
+        executablePath: executablePath // <-- ¡AQUÍ ESTÁ LA MAGIA!
     });
     const page = await browser.newPage();
     

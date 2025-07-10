@@ -213,10 +213,7 @@ class ConexionTiktok extends EventEmitter {
       options
     );
 
-    let status = response?.data?.data?.user?.status;
-    let roomId = response?.data?.data?.user?.roomId;
-
-    return { status, roomId };
+    return response?.data?.data?.user;
   }
 
   async obtenerRegalos() {

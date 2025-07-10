@@ -1,23 +1,23 @@
-// WebcastWebsocket.js
+// webcastWebsocket.js
 
 const WebSocket = require('ws');
 const EventEmitter = require('events');
-const querystring = require('querystring');
-const url = require('url');
 const crypto = require('crypto');
+const { deserializeWebsocketMessage, serializeMessage } = require('./messageDecoder');
 
-// Importamos las funciones de decodificación/codificación desde nuestro módulo especializado
-const {
-  deserializeWebsocketMessage,
-  serializeMessage
-} = require('./messageDecoder');
-
-// Constantes relacionadas con la conexión WebSocket
-const CONSTANTS = {
-  WEBSOCKET_HOST: 'webcast16-ws-useast1a.tiktok.com',
-  ORIGIN_URL: 'https://www.tiktok.com',
-  PING_INTERVAL: 10000,
-  SELECTED_COOKIE_NAMES: [
+const WEBSOCKET_DEFAULTS = {
+  pingInterval: 10000,
+  origin: 'https://www.tiktok.com',
+  headers: {
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Cache-Control': 'no-cache',
+    'Connection': 'Upgrade',
+    'Pragma': 'no-cache',
+    'Upgrade': 'websocket',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
+  },
+  // Cookies that are essential for the connection
+  requiredCookieNames: [
     'ttwid',
     'tt_chain_token',
     'odin_tt',
@@ -25,130 +25,111 @@ const CONSTANTS = {
     'uid_tt',
     'bm_sv'
   ],
-  HEADERS: {
-    'Accept': '*/*',
-    'Accept-Encoding': 'gzip, deflate, br, zstd',
-    'Accept-Language': 'es-ES,es;q=0.8,en-US;q=0.5,en;q=0.3',
-    'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive, Upgrade',
-    'Pragma': 'no-cache',
-    'Sec-Fetch-Dest': 'empty',
-    'Sec-Fetch-Mode': 'websocket',
-    'Sec-Fetch-Site': 'same-site',
-    'Sec-WebSocket-Extensions': 'permessage-deflate',
-    'Sec-WebSocket-Version': '13',
-    'Upgrade': 'websocket',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0'
-  }
 };
 
 class WebcastWebsocket extends EventEmitter {
-  constructor(wsUrl, cookieJar, clientParams, wsParams, customHeaders, websocketOptions) {
+  /**
+   * Creates a new WebSocket connection to a TikTok LIVE stream.
+   * @param {string} wsUrl The full WebSocket URL for the connection.
+   * @param {object} options Configuration options.
+   * @param {Array<object>} options.cookies An array of cookie objects from Electron/Puppeteer.
+   * @param {object} [options.customHeaders={}] Additional headers to include.
+   * @param {object} [options.websocketOptions={}] Options passed directly to the 'ws' library.
+   */
+  constructor(wsUrl, options) {
     super();
-    this.pingInterval = null;
+    
+    this.wsUrl = this._prepareWsUrl(wsUrl);
+    this.options = { ...WEBSOCKET_DEFAULTS, ...options };
+    
     this.connection = null;
-    this.wsParams = { ...clientParams, ...wsParams };
-    this.cookies = this._filterAndFormatCookies(cookieJar);
-    this.wsHeaders = { ...customHeaders };
-    this.websocketOptions = websocketOptions;
-    this.wsUrlWithParams = this._formatWsUrl(wsUrl);
+    this.pingIntervalId = null;
 
     this._connect();
   }
 
-  _formatWsUrl(wsUrl) {
-    const parsedUrl = url.parse(decodeURI(wsUrl));
-    const queryParams = querystring.parse(parsedUrl.query);
-    queryParams.browser_version = '5.0 (Windows)';
-    const newQueryString = querystring.stringify(queryParams);
-
-    return url.format({
-      protocol: parsedUrl.protocol,
-      host: parsedUrl.host,
-      pathname: parsedUrl.pathname,
-      search: `?${newQueryString}`
-    });
+  /**
+   * Disconnects the WebSocket and cleans up resources.
+   */
+  disconnect() {
+    if (this.connection) {
+      this.connection.close();
+      // Event listeners are automatically removed on 'close'
+    }
   }
 
+  /**
+   * [Private] Prepares the WebSocket URL by ensuring required parameters are present.
+   * @param {string} wsUrl - The initial WebSocket URL.
+   * @returns {string} The formatted URL.
+   * @private
+   */
+  _prepareWsUrl(wsUrl) {
+    const url = new URL(decodeURI(wsUrl));
+    // TikTok may require specific params, ensure they are set
+    url.searchParams.set('browser_version', '5.0 (Windows)');
+    return url.toString();
+  }
+
+  /**
+   * [Private] Establishes the WebSocket connection.
+   * @private
+   */
   _connect() {
+    this._cleanup(); // Ensure no old connection exists
+
     const headers = {
-      ...CONSTANTS.HEADERS,
-      ...this.wsHeaders,
-      'Cookie': this.cookies,
-      'Host': CONSTANTS.WEBSOCKET_HOST,
-      'Origin': CONSTANTS.ORIGIN_URL,
-      'Sec-WebSocket-Key': this._generateSecWebSocketKey()
+      ...this.options.headers,
+      ...this.options.customHeaders,
+      'Cookie': this._getCookieString(),
+      'Host': new URL(this.wsUrl).host,
+      'Origin': this.options.origin,
+      'Sec-WebSocket-Key': crypto.randomBytes(16).toString('base64'),
     };
 
-    this._cleanupExistingConnection();
-    console.log("Conectando a:", this.wsUrlWithParams);
-    this.connection = new WebSocket(this.wsUrlWithParams, {
-      headers: headers,
-      ...this.websocketOptions
+    console.log(`Connecting to WebSocket at ${this.wsUrl}`);
+    this.connection = new WebSocket(this.wsUrl, {
+      headers,
+      ...this.options.websocketOptions,
     });
 
     this._setupEventListeners();
   }
 
-  _cleanupExistingConnection() {
-    if (this.connection) {
-      this.connection.removeAllListeners();
-      this.connection.close();
-      this.connection = null;
-    }
-  }
-
+  /**
+   * [Private] Sets up all event listeners for the WebSocket connection.
+   * @private
+   */
   _setupEventListeners() {
     this.connection.on('open', () => {
-      this.emit('conectado', {});
-      this.pingInterval = setInterval(() => this._sendPing(), CONSTANTS.PING_INTERVAL);
+      this.emit('connected');
+      this.pingIntervalId = setInterval(() => this._sendPing(), this.options.pingInterval);
     });
 
     this.connection.on('message', (data) => {
-      this._handleMessage(data);
+      this._processMessage(data).catch(err => {
+        this.emit('messageDecodingFailed', err);
+      });
     });
 
-    this.connection.on('close', () => {
-      clearInterval(this.pingInterval);
-      this.emit("disconnected", {});
+    this.connection.on('close', (code, reason) => {
+      this._cleanup();
+      this.emit('disconnected', { code, reason: reason.toString() });
     });
 
     this.connection.on('error', (error) => {
-      console.error('WebSocket error:', error.message);
+      console.error('WebSocket Error:', error.message);
       this.emit('error', error);
-      this._cleanupExistingConnection();
+      this._cleanup();
     });
   }
 
-  disconnect() {
-    if (this.connection) {
-      this.connection.close();
-      clearInterval(this.pingInterval);
-      this.connection = null;
-    }
-  }
-
-  _filterAndFormatCookies(cookies) {
-    return cookies
-      .filter(cookie => CONSTANTS.SELECTED_COOKIE_NAMES.includes(cookie.name))
-      .map(cookie => `${cookie.name}=${cookie.value}`)
-      .join('; ');
-  }
-
-  _generateSecWebSocketKey() {
-    return crypto.randomBytes(16).toString('base64');
-  }
-
-  _handleMessage(data) {
-    // La lógica de decodificación ahora está en una función asíncrona, la manejamos aquí.
-    this._processBinaryMessage(data).catch(err => {
-      this.emit('messageDecodingFailed', err);
-    });
-  }
-
-  async _processBinaryMessage(binaryData) {
-    // Usamos la función importada para decodificar el mensaje.
-    // Toda la complejidad de Protobuf y Gzip está oculta en messageDecoder.js
+  /**
+   * [Private] Processes an incoming binary message from the WebSocket.
+   * @param {Buffer} binaryData - The raw message data.
+   * @private
+   */
+  async _processMessage(binaryData) {
     const decodedContainer = await deserializeWebsocketMessage(binaryData);
 
     if (decodedContainer.id > 0) {
@@ -160,20 +141,56 @@ class WebcastWebsocket extends EventEmitter {
     }
   }
 
+  /**
+   * [Private] Sends a ping to keep the connection alive.
+   * @private
+   */
   _sendPing() {
-    if (this.connection && this.connection.readyState === WebSocket.OPEN) {
+    if (this.connection?.readyState === WebSocket.OPEN) {
       this.connection.ping();
     }
   }
 
+  /**
+   * [Private] Sends an acknowledgement message for a received container.
+   * @param {number} id - The ID of the message to acknowledge.
+   * @private
+   */
   _sendAck(id) {
-    if (this.connection && this.connection.readyState === WebSocket.OPEN) {
-      // Usamos la función importada para serializar el mensaje de ACK.
-      const ackMsg = serializeMessage('WebcastWebsocketAck', {
-        type: 'ack',
-        id
-      });
+    if (this.connection?.readyState === WebSocket.OPEN) {
+      const ackMsg = serializeMessage('WebcastWebsocketAck', { type: 'ack', id });
       this.connection.send(ackMsg);
+    }
+  }
+
+  /**
+   * [Private] Formats the cookie array into a string for the request header.
+   * @returns {string} The formatted cookie string.
+   * @private
+   */
+  _getCookieString() {
+    if (!this.options.cookies) return '';
+    return this.options.cookies
+      .filter(cookie => this.options.requiredCookieNames.includes(cookie.name))
+      .map(cookie => `${cookie.name}=${cookie.value}`)
+      .join('; ');
+  }
+
+  /**
+   * [Private] Cleans up the connection and any intervals.
+   * @private
+   */
+  _cleanup() {
+    if (this.pingIntervalId) {
+      clearInterval(this.pingIntervalId);
+      this.pingIntervalId = null;
+    }
+    if (this.connection) {
+      this.connection.removeAllListeners();
+      if (this.connection.readyState !== WebSocket.CLOSED) {
+        this.connection.terminate();
+      }
+      this.connection = null;
     }
   }
 }

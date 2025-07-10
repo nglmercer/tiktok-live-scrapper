@@ -32,8 +32,6 @@ const ConnectorEvents = Object.freeze({
 const RECONNECT_DELAY_MS = 5000; // Delay before attempting reconnection
 
 class TikTokConnector extends EventEmitter {
-    #hash;
-    #version;
     #electronVentanas; // Reference to the Ventanas class instance or similar
 
     #connection = null;
@@ -48,17 +46,13 @@ class TikTokConnector extends EventEmitter {
 
     /**
      * Initializes the TikTok Connector service.
-     * @param {string} userHash The user's hash identifier.
-     * @param {string} appVersion The application version string.
      * @param {object} electronVentanas Reference to the Electron window manager class (Ventanas).
      */
-    constructor(userHash, appVersion, electronVentanas) {
+    constructor(electronVentanas) {
         super();
-        if (!userHash || !appVersion || !electronVentanas) {
-            throw new Error("TikTokConnector requires userHash, appVersion, and electronVentanas.");
+        if (!electronVentanas) {
+            throw new Error("TikTokConnector require electronVentanas.");
         }
-        this.#hash = userHash;
-        this.#version = appVersion;
         this.#electronVentanas = electronVentanas;
     }
 
@@ -188,7 +182,7 @@ class TikTokConnector extends EventEmitter {
                  // Create a temporary instance ONLY for gift fetching if absolutely necessary
                  // This might require extra cookies or fail often. Better to fetch when connected.
                  console.warn("TikTokConnector: Fetching gifts without an active connection instance. Creating temporary.");
-                 const tempConn = new ConexionTiktok(this.#currentUsername, this.#hash, this.#version, this.#electronVentanas);
+                 const tempConn = new ConexionTiktok(this.#currentUsername, this.#electronVentanas);
                  giftList = await tempConn.obtenerRegalos();
                  // No need to keep tempConn alive
              } else {

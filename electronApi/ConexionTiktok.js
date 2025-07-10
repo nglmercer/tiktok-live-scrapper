@@ -1,7 +1,6 @@
 // ConexionTiktok.js
 
 const EventEmitter = require("events");
-const SocketIO = require("socket.io-client");
 const WebcastWebsocket = require("./webcastWebsocket");
 const axios = require("axios");
 const { session } = require("electron");

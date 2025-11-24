@@ -1,4 +1,3 @@
-// src/types/index.ts
 export interface TikTokEvent {
   eventName: string;
   data: any;

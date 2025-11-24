@@ -1,4 +1,3 @@
-// src/utils/messageDecoder.ts
 import protobuf from 'protobufjs';
 import { promisify } from 'node:util';
 import zlib from 'node:zlib';
@@ -53,7 +52,7 @@ function deserializeMessage(protoName: string, binaryMessage: Buffer): any {
         try {
           message.decodedData = schema.lookupType(`TikTok.${messageType}`).decode(message.binary);
         } catch (err) {
-          console.warn(`Error decodificando mensaje anidado ${messageType}:`, (err as Error).message);
+          console.warn(`Error decoding nested message ${messageType}:`, (err as Error).message);
         }
       }
     });
@@ -68,7 +67,6 @@ export async function deserializeWebsocketMessage(binaryMessage: Buffer): Promis
   if (wsMessage.type === 'msg' && wsMessage.binary) {
     let binary = wsMessage.binary;
 
-    // Detectar y descomprimir gzip
     if (binary.length > 2 && binary[0] === 0x1f && binary[1] === 0x8b) {
       binary = await unzip(binary);
     }
@@ -82,7 +80,6 @@ export async function deserializeWebsocketMessage(binaryMessage: Buffer): Promis
 export function serializeMessage(protoName: string, obj: any): Buffer {
   const schema = schemaManager.getSchema();
   const uint8Array = schema.lookupType(`TikTok.${protoName}`).encode(obj).finish();
-  
-  // Convertir Uint8Array → Buffer de forma segura
+
   return Buffer.from(uint8Array);
 }

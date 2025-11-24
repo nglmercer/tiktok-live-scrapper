@@ -2,7 +2,7 @@ const eventsContainer = document.getElementById('events');
 const usernameInput = document.getElementById('usernameInput');
 const subscribeButton = document.getElementById('subscribeButton');
 
-const socket = new WebSocket('ws://localhost:8080');
+const socket = new WebSocket('ws://localhost:8080/ws');
 
 socket.onopen = () => {
     console.log('Connected to the server!');
@@ -12,7 +12,7 @@ socket.onopen = () => {
 socket.onmessage = (event) => {
     const message = JSON.parse(event.data);
     console.log('Received:', message);
-    
+
     let logText = `<b>Event: ${message.event}</b>`;
     if (message.data?.uniqueId) {
         logText += ` | User: ${message.data.uniqueId}`;
@@ -23,7 +23,7 @@ socket.onmessage = (event) => {
      if (message.data?.gift?.gift_id) {
         logText += ` | Gift: ${message.data.gift.gift_id} (x${message.data.repeat_count})`;
     }
-    
+
     addEventLog(logText);
 };
 

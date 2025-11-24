@@ -1,34 +1,31 @@
 {
   "name": "tiktok-live-api",
   "version": "1.0.0",
-  "description": "A standalone Node.js WebSocket server to receive real-time TikTok LIVE events.",
+  "description": "A protobuf translation service for TikTok LIVE data that processes buffers or base64 and returns translated data via HTTP or WebSocket.",
   "main": "src/server/index.js",
   "scripts": {
-    "start": "bun ./src/websocket/server.ts",
-    "dev": "bun ./src/websocket/server.ts"
+    "start": "bun ./src/server/index.ts",
+    "dev": "bun ./src/server/index.ts",
+    "typecheck": "bunx tsc --noEmit"
   },
   "keywords": [
     "tiktok",
     "live",
+    "protobuf",
     "websocket",
+    "translation",
     "api",
     "real-time"
   ],
-  "author": "TuNombre",
+  "author": "YourName",
   "license": "ISC",
   "dependencies": {
-    "@types/ws": "^8.18.1",
-    "node-static": "^0.7.11",
+    "@hono/node-server": "^1.14.5",
+    "hono": "^4.7.4",
     "protobufjs": "^7.2.5",
-    "puppeteer": "^24.31.0",
-    "puppeteer-core": "^24.31.0",
-    "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-adblocker": "^2.13.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "ws": "^8.18.3"
   },
   "devDependencies": {
-    "@types/puppeteer": "^5.4.7",
-    "@types/puppeteer-core": "^5.4.0"
+    "@types/ws": "^8.18.1"
   }
 }

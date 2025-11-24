@@ -4,8 +4,8 @@
   "description": "A standalone Node.js WebSocket server to receive real-time TikTok LIVE events.",
   "main": "src/server/index.js",
   "scripts": {
-    "start": "node src/server/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "bun ./src/websocket/server.ts",
+    "dev": "bun ./src/websocket/server.ts"
   },
   "keywords": [
     "tiktok",
@@ -17,12 +17,18 @@
   "author": "TuNombre",
   "license": "ISC",
   "dependencies": {
+    "@types/ws": "^8.18.1",
     "node-static": "^0.7.11",
     "protobufjs": "^7.2.5",
-    "puppeteer": "^22.6.5",
-    "puppeteer-core": "^24.12.1",
+    "puppeteer": "^24.31.0",
+    "puppeteer-core": "^24.31.0",
     "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-adblocker": "^2.13.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "ws": "^8.16.0"
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/puppeteer": "^5.4.7",
+    "@types/puppeteer-core": "^5.4.0"
   }
 }
